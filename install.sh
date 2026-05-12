@@ -160,6 +160,75 @@ audio_patch_skipped() {
   [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]
 }
 
+build_audio_patch_flags() {
+  AUDIO_FLAGS=()
+  if [ -n "${FREEJAM_AUDIO_PATCH_FLAGS:-}" ]; then
+    read -r -a AUDIO_FLAGS <<<"${FREEJAM_AUDIO_PATCH_FLAGS}"
+    return
+  fi
+  if [ "$OS" = "Darwin" ]; then
+    AUDIO_FLAGS=(-f -B -c)
+    if [ ! -d "/Applications/Spotify.app" ] && [ ! -d "$HOME/Applications/Spotify.app" ]; then
+      AUDIO_FLAGS=(--installmac "${AUDIO_FLAGS[@]}")
+    fi
+  else
+    AUDIO_FLAGS=(-f -c)
+  fi
+}
+
+# Restore xpui.spa to the FreeJam helper's backed-up copy. Tries the helper's
+# built-in restore first; if that bails (it refuses on version mismatch or
+# empty backup), copies xpui.spa straight out of the backup folder. Returns 0
+# if xpui.spa was rewritten, 1 if no usable backup was found.
+restore_helper_backup() {
+  command -v "$HELPER_BIN" >/dev/null 2>&1 || return 1
+
+  if "$HELPER_BIN" restore >"$TMP/restore.log" 2>&1; then
+    return 0
+  fi
+
+  local cfg cfg_dir src target
+  cfg="$("$HELPER_BIN" -c 2>/dev/null || true)"
+  [ -n "$cfg" ] || return 1
+  cfg_dir="$(dirname "$cfg")"
+
+  for src in \
+      "$cfg_dir/Backup/xpui.spa" \
+      "$cfg_dir/Backup/Apps/xpui.spa" \
+      "$cfg_dir/Backup"/*/xpui.spa \
+      "$cfg_dir/Backup"/*/Apps/xpui.spa; do
+    [ -f "$src" ] || continue
+    if [ "$OS" = "Darwin" ]; then
+      for target in \
+          "/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa" \
+          "$HOME/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa"; do
+        [ -d "$(dirname "$target")" ] || continue
+        if cp "$src" "$target" 2>/dev/null; then
+          echo "  Restored $target from helper backup."
+          return 0
+        fi
+        if sudo cp "$src" "$target" 2>/dev/null; then
+          echo "  Restored $target from helper backup (sudo)."
+          return 0
+        fi
+      done
+    else
+      for target in \
+          "/opt/spotify/spotify-client/Apps/xpui.spa" \
+          "/usr/share/spotify/Apps/xpui.spa" \
+          "$HOME/.var/app/com.spotify.Client/config/spotify/Apps/xpui.spa"; do
+        [ -d "$(dirname "$target")" ] || continue
+        if cp "$src" "$target" 2>/dev/null || sudo cp "$src" "$target" 2>/dev/null; then
+          echo "  Restored $target from helper backup."
+          return 0
+        fi
+      done
+    fi
+  done
+
+  return 1
+}
+
 run_audio_patch() {
   if audio_patch_skipped; then
     echo "Skipping audio patch (FreeJam-only install)."
@@ -167,32 +236,43 @@ run_audio_patch() {
   fi
 
   local patch_script="$TMP/audio-patch.sh"
-  local flags=()
-  if [ -n "${FREEJAM_AUDIO_PATCH_FLAGS:-}" ]; then
-    read -r -a flags <<<"${FREEJAM_AUDIO_PATCH_FLAGS}"
-  elif [ "$OS" = "Darwin" ]; then
-    flags=(-f -B -c)
-    if [ ! -d "/Applications/Spotify.app" ] && [ ! -d "$HOME/Applications/Spotify.app" ]; then
-      flags=(--installmac -f -B -c)
-    fi
-  else
-    flags=(-f -c)
-  fi
-
-  echo "Preparing Spotify audio patch…"
   curl -fsSL --retry 3 "$PATCHER_URL" -o "$patch_script"
+
   if command -v "$HELPER_BIN" >/dev/null 2>&1; then
     echo "Resetting existing FreeJam helper patch…"
-    "$HELPER_BIN" restore >"$TMP/restore.log" 2>&1 || true
+    restore_helper_backup || true
     "$HELPER_BIN" clear >"$TMP/clear.log" 2>&1 || true
   fi
-  if ! run_with_log "$TMP/audio-patch.log" bash "$patch_script" "${flags[@]}"; then
-    if LC_ALL=C grep -Eiq 'already been installed|use the .-f. flag to force' "$TMP/audio-patch.log"; then
-      echo "Audio cleanup already present; continuing."
-      return
-    fi
-    fail_with_log "Audio patch failed. Re-run this installer after fixing the setup issue." "$TMP/audio-patch.log"
+
+  build_audio_patch_flags
+  echo "Preparing Spotify audio patch…"
+  if run_with_log "$TMP/audio-patch.log" bash "$patch_script" "${AUDIO_FLAGS[@]}"; then
+    return
   fi
+
+  if LC_ALL=C grep -Eiq 'already been installed|use the .-f. flag to force' "$TMP/audio-patch.log"; then
+    echo "Audio cleanup already present; continuing."
+    return
+  fi
+
+  # Auto-recover from "Detected audio patch but no backup file! Reinstall client."
+  # — SpotX sees a stale patch marker in xpui.spa and has no original to restore
+  # from. The FreeJam helper keeps its own xpui.spa backup; force-restore from
+  # that (bypassing the helper's version-mismatch refusal) and retry.
+  if LC_ALL=C grep -Eiq 'no backup file|Reinstall client' "$TMP/audio-patch.log"; then
+    echo "Spotify has stale audio-patch markers. Restoring xpui.spa from the FreeJam helper backup…"
+    if restore_helper_backup; then
+      echo "Retrying audio patch on the restored xpui…"
+      if run_with_log "$TMP/audio-patch.log" bash "$patch_script" "${AUDIO_FLAGS[@]}"; then
+        return
+      fi
+    else
+      echo "  No usable FreeJam helper backup found."
+    fi
+    fail_with_log "Could not auto-recover Spotify. Drag /Applications/Spotify.app to the Trash, reinstall Spotify from spotify.com/download, then re-run this installer." "$TMP/audio-patch.log"
+  fi
+
+  fail_with_log "Audio patch failed. Re-run this installer after fixing the setup issue." "$TMP/audio-patch.log"
 }
 
 select_state_home
