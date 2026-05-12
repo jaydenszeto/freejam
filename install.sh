@@ -176,87 +176,6 @@ build_audio_patch_flags() {
   fi
 }
 
-# Restore xpui.spa to the FreeJam helper's backed-up copy. Tries the helper's
-# built-in restore first; if that bails (it refuses on version mismatch or
-# empty backup), copies xpui.spa straight out of the backup folder. Returns 0
-# if xpui.spa was rewritten, 1 if no usable backup was found.
-helper_backup_roots() {
-  # The helper resolves its backup folder via GetStateFolder("Backup"):
-  #   SPICETIFY_STATE env > $HOME/.local/state/spicetify (darwin)
-  #                       > $XDG_STATE_HOME/spicetify or $HOME/.local/state/spicetify (linux)
-  #   APPDATA on windows (not relevant here).
-  # Older versions kept the backup next to config-xpui.ini, so we also check
-  # the config dir in case the user is on a pre-migration helper.
-  local roots=()
-  [ -n "${SPICETIFY_STATE:-}" ] && roots+=("${SPICETIFY_STATE}/Backup")
-  if [ "$OS" = "Darwin" ]; then
-    roots+=("$HOME/.local/state/$HELPER_BIN/Backup")
-  else
-    roots+=("${XDG_STATE_HOME:-$HOME/.local/state}/$HELPER_BIN/Backup")
-    [ "${XDG_STATE_HOME:-}" != "$HOME/.local/state" ] && roots+=("$HOME/.local/state/$HELPER_BIN/Backup")
-  fi
-  if command -v "$HELPER_BIN" >/dev/null 2>&1; then
-    local cfg
-    cfg="$("$HELPER_BIN" -c 2>/dev/null || true)"
-    [ -n "$cfg" ] && roots+=("$(dirname "$cfg")/Backup")
-  fi
-  printf '%s\n' "${roots[@]}"
-}
-
-find_helper_xpui_backup() {
-  local root src
-  while IFS= read -r root; do
-    [ -d "$root" ] || continue
-    for src in "$root/xpui.spa" "$root/Apps/xpui.spa" "$root"/*/xpui.spa "$root"/*/Apps/xpui.spa; do
-      if [ -f "$src" ]; then
-        echo "$src"
-        return 0
-      fi
-    done
-  done < <(helper_backup_roots)
-  return 1
-}
-
-restore_helper_backup() {
-  command -v "$HELPER_BIN" >/dev/null 2>&1 || return 1
-
-  if "$HELPER_BIN" restore >"$TMP/restore.log" 2>&1; then
-    return 0
-  fi
-
-  local src target
-  src="$(find_helper_xpui_backup)" || return 1
-
-  if [ "$OS" = "Darwin" ]; then
-    for target in \
-        "/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa" \
-        "$HOME/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa"; do
-      [ -d "$(dirname "$target")" ] || continue
-      if cp "$src" "$target" 2>/dev/null; then
-        echo "  Restored $target from helper backup ($src)."
-        return 0
-      fi
-      if sudo cp "$src" "$target" 2>/dev/null; then
-        echo "  Restored $target from helper backup ($src, sudo)."
-        return 0
-      fi
-    done
-  else
-    for target in \
-        "/opt/spotify/spotify-client/Apps/xpui.spa" \
-        "/usr/share/spotify/Apps/xpui.spa" \
-        "$HOME/.var/app/com.spotify.Client/config/spotify/Apps/xpui.spa"; do
-      [ -d "$(dirname "$target")" ] || continue
-      if cp "$src" "$target" 2>/dev/null || sudo cp "$src" "$target" 2>/dev/null; then
-        echo "  Restored $target from helper backup ($src)."
-        return 0
-      fi
-    done
-  fi
-
-  return 1
-}
-
 run_audio_patch() {
   if audio_patch_skipped; then
     echo "Skipping audio patch (FreeJam-only install)."
@@ -268,7 +187,7 @@ run_audio_patch() {
 
   if command -v "$HELPER_BIN" >/dev/null 2>&1; then
     echo "Resetting existing FreeJam helper patch…"
-    restore_helper_backup || true
+    "$HELPER_BIN" restore >"$TMP/restore.log" 2>&1 || true
     "$HELPER_BIN" clear >"$TMP/clear.log" 2>&1 || true
   fi
 
@@ -283,21 +202,14 @@ run_audio_patch() {
     return
   fi
 
-  # Auto-recover from "Detected audio patch but no backup file! Reinstall client."
-  # — SpotX sees a stale patch marker in xpui.spa and has no original to restore
-  # from. The FreeJam helper keeps its own xpui.spa backup; force-restore from
-  # that (bypassing the helper's version-mismatch refusal) and retry.
+  # "Detected audio patch but no backup file! Reinstall client." — xpui.spa
+  # already carries the audio-patch markers from a prior run, so ad-blocking
+  # is in effect; SpotX just can't re-patch without its own backup. The
+  # downstream `spicetify backup apply` takes a fresh backup of the current
+  # xpui and applies FreeJam on top, which is all we need.
   if LC_ALL=C grep -Eiq 'no backup file|Reinstall client' "$TMP/audio-patch.log"; then
-    echo "Spotify has stale audio-patch markers. Restoring xpui.spa from the FreeJam helper backup…"
-    if restore_helper_backup; then
-      echo "Retrying audio patch on the restored xpui…"
-      if run_with_log "$TMP/audio-patch.log" bash "$patch_script" "${AUDIO_FLAGS[@]}"; then
-        return
-      fi
-    else
-      echo "  No usable FreeJam helper backup found."
-    fi
-    fail_with_log "Could not auto-recover Spotify. Drag /Applications/Spotify.app to the Trash, reinstall Spotify from spotify.com/download, then re-run this installer." "$TMP/audio-patch.log"
+    echo "Audio cleanup already present from a prior run; continuing."
+    return
   fi
 
   fail_with_log "Audio patch failed. Re-run this installer after fixing the setup issue." "$TMP/audio-patch.log"
