@@ -254,6 +254,8 @@ curl -fsSL --retry 3 "https://github.com/${REPO}/releases/latest/download/freeja
 
 # Register and apply.
 "$HELPER_BIN" config extensions freejam.js >"$TMP/cfg.log" 2>&1
+# Remove the Spicetify Marketplace sidebar button (no-op if not present).
+"$HELPER_BIN" config custom_apps marketplace- >>"$TMP/cfg.log" 2>&1 || true
 ensure_helper_state
 "$HELPER_BIN" backup apply >"$TMP/apply.log" 2>&1 || {
   fail_with_log "Could not apply FreeJam to Spotify." "$TMP/apply.log"
