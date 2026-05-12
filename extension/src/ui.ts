@@ -2,24 +2,24 @@ import { state, onStateChange } from "./state";
 import { createRoom, joinRoom, leaveRoom } from "./ws-client";
 import { hostApi } from "./spotify";
 
-let topbarButton: any = null;
+let playbarButton: any = null;
 
 export function initUI(): void {
   const api = hostApi();
 
-  topbarButton = new api.Topbar.Button(
+  playbarButton = new api.Playbar.Button(
     "FreeJam",
     `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM6.4 5l4.6 3-4.6 3V5z"/></svg>`,
     () => openModal(),
   );
 
   const updateLabel = () => {
-    if (!topbarButton) return;
+    if (!playbarButton) return;
     if (state.room_code) {
       const total = state.peers.size + 1;
-      topbarButton.label = `FreeJam · ${state.room_code} · ${total}`;
+      playbarButton.label = `FreeJam · ${state.room_code} · ${total}`;
     } else {
-      topbarButton.label = "FreeJam";
+      playbarButton.label = "FreeJam";
     }
   };
   onStateChange(updateLabel);

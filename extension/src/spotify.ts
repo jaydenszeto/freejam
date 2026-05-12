@@ -12,7 +12,7 @@ export function isReady(): boolean {
   return Boolean(
     api &&
       api?.Player &&
-      api?.Topbar &&
+      api?.Playbar &&
       api?.PopupModal &&
       api?.React,
   );

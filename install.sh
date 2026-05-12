@@ -265,4 +265,4 @@ if [ "$PREMIUM_DETECTED" = "1" ] || [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]; 
 else
   echo "✓ FreeJam installed with Spotify audio cleanup."
 fi
-echo "  Open Spotify, then click FreeJam in the top bar."
+echo "  Open Spotify, then click FreeJam in the playbar — bottom-right, next to the lyrics icon."

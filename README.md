@@ -12,7 +12,7 @@ the audio cleanup patch needed to remove ads.
 curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | bash
 ```
 
-Then **open Spotify** and click **FreeJam** in the top bar.
+Then **open Spotify** and click the **FreeJam** button in the playbar — bottom-right, next to the lyrics icon.
 
 If the installer detects a Premium account, it installs only FreeJam.
 Otherwise, macOS installs block Spotify auto-updates and clear the app cache
