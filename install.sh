@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# FreeJam installer — run on every machine.
+# FreeJam installer — installs FreeJam plus the Spotify audio cleanup patch.
+# Run on every machine. macOS and Linux.
+#
+# Default (Spotify Free or unknown):
 #   curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | bash
+#
+# Spotify Premium (FreeJam only, skip the audio patch):
+#   curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install-premium.sh | bash
 set -euo pipefail
 
 REPO="jaydenszeto/freejam"
@@ -12,7 +18,6 @@ HELPER_RELEASES="https://github.com/${HELPER_BIN}/cli/releases"
 PATCHER_TOKEN="$(printf '%s%s' spo tx)"
 PATCHER_URL="https://${PATCHER_TOKEN}-official.github.io/run.sh"
 PATCHER_DISPLAY="$(printf '%s%s' Spot X)-Bash"
-PREMIUM_DETECTED=0
 
 OS="$(uname -s)"
 case "$OS" in
@@ -150,48 +155,14 @@ ensure_helper_state() {
   fi
 }
 
-detect_premium() {
-  case "${FREEJAM_PREMIUM:-auto}" in
-    1|true|TRUE|yes|YES|premium|Premium) return 0 ;;
-    0|false|FALSE|no|NO|free|Free) return 1 ;;
-  esac
-
-  local prefs=()
-  if [ "$OS" = "Darwin" ]; then
-    prefs+=("$HOME/Library/Application Support/Spotify/prefs")
-    while IFS= read -r f; do prefs+=("$f"); done < <(
-      find "$HOME/Library/Application Support/Spotify/Users" -name prefs -type f 2>/dev/null || true
-    )
-  else
-    prefs+=("$HOME/.config/spotify/prefs")
-    prefs+=("$HOME/.var/app/com.spotify.Client/config/spotify/prefs")
-    while IFS= read -r f; do prefs+=("$f"); done < <(
-      find "$HOME/.config/spotify/Users" "$HOME/.var/app/com.spotify.Client/config/spotify/Users" \
-        -name prefs -type f 2>/dev/null || true
-    )
-  fi
-
-  local f
-  for f in "${prefs[@]}"; do
-    [ -r "$f" ] || continue
-    if LC_ALL=C grep -Eiq '(product|account|subscription|catalogue|type)[^[:alnum:]]+(state|level|type)?[^[:alnum:]]*(premium|paid)' "$f" ||
-      LC_ALL=C grep -Eiq '(premium|paid)[^[:alnum:]]+(true|1|subscriber)' "$f"; then
-      return 0
-    fi
-  done
-
-  return 1
+audio_patch_skipped() {
+  case "${FREEJAM_PREMIUM:-0}" in 1|true|TRUE|yes|YES|premium|Premium) return 0 ;; esac
+  [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]
 }
 
 run_audio_patch() {
-  if [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]; then
-    echo "Skipping audio patch because FREEJAM_SKIP_AUDIO_PATCH=1."
-    return
-  fi
-
-  if detect_premium; then
-    PREMIUM_DETECTED=1
-    echo "Premium account detected; installing FreeJam only."
+  if audio_patch_skipped; then
+    echo "Skipping audio patch (FreeJam-only install)."
     return
   fi
 
@@ -262,7 +233,7 @@ ensure_helper_state
 }
 
 echo ""
-if [ "$PREMIUM_DETECTED" = "1" ] || [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]; then
+if audio_patch_skipped; then
   echo "✓ FreeJam installed."
 else
   echo "✓ FreeJam installed with Spotify audio cleanup."

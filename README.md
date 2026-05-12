@@ -4,30 +4,34 @@ Listen to Spotify with friends — on your own account, in sync, with bidirectio
 
 ## Install
 
-Run this on every machine. Same line for everyone. macOS and Linux.
-The installer adds FreeJam on top of Spotify. Free-tier installs also receive
-the audio cleanup patch needed to remove ads.
+Run on every machine. macOS and Linux.
+
+**Default — installs FreeJam plus the audio cleanup patch that removes ads.** Use this unless you're on Spotify Premium.
 
 ```
 curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | bash
 ```
 
-Then **open Spotify** and click the **FreeJam** button in the playbar — bottom-right, next to the lyrics icon.
-
-If the installer detects a Premium account, it installs only FreeJam.
-Otherwise, macOS installs block Spotify auto-updates and clear the app cache
-before FreeJam is applied.
-
-Detection depends on local Spotify account prefs. To force FreeJam-only mode,
-set `FREEJAM_PREMIUM=1`; to force the free-tier patch plus FreeJam, set
-`FREEJAM_PREMIUM=0`. To customize the audio patch, set
-`FREEJAM_AUDIO_PATCH_FLAGS`; to skip it regardless of account type, set
-`FREEJAM_SKIP_AUDIO_PATCH=1`.
-
-When using the one-line installer, put overrides on `bash`, for example:
+**Spotify Premium — installs FreeJam only, no audio patch.**
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | FREEJAM_PREMIUM=1 bash
+curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install-premium.sh | bash
+```
+
+Then **open Spotify** and click the **FreeJam** button in the playbar — bottom-right, next to the lyrics icon.
+
+On macOS the audio patch also blocks Spotify auto-updates and clears the app cache so the patch sticks.
+
+Advanced overrides (default installer):
+
+- `FREEJAM_PREMIUM=1` or `FREEJAM_SKIP_AUDIO_PATCH=1` — skip the audio patch (same effect as using `install-premium.sh`).
+- `FREEJAM_AUDIO_PATCH_FLAGS="…"` — override the audio-patch flag list.
+- `FREEJAM_DEBUG=1` — print full setup logs on failure.
+
+When using the one-line installer, put overrides on `bash`, e.g.:
+
+```
+curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | FREEJAM_DEBUG=1 bash
 ```
 
 ## Use
