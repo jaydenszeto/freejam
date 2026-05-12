@@ -180,6 +180,43 @@ build_audio_patch_flags() {
 # built-in restore first; if that bails (it refuses on version mismatch or
 # empty backup), copies xpui.spa straight out of the backup folder. Returns 0
 # if xpui.spa was rewritten, 1 if no usable backup was found.
+helper_backup_roots() {
+  # The helper resolves its backup folder via GetStateFolder("Backup"):
+  #   SPICETIFY_STATE env > $HOME/.local/state/spicetify (darwin)
+  #                       > $XDG_STATE_HOME/spicetify or $HOME/.local/state/spicetify (linux)
+  #   APPDATA on windows (not relevant here).
+  # Older versions kept the backup next to config-xpui.ini, so we also check
+  # the config dir in case the user is on a pre-migration helper.
+  local roots=()
+  [ -n "${SPICETIFY_STATE:-}" ] && roots+=("${SPICETIFY_STATE}/Backup")
+  if [ "$OS" = "Darwin" ]; then
+    roots+=("$HOME/.local/state/$HELPER_BIN/Backup")
+  else
+    roots+=("${XDG_STATE_HOME:-$HOME/.local/state}/$HELPER_BIN/Backup")
+    [ "${XDG_STATE_HOME:-}" != "$HOME/.local/state" ] && roots+=("$HOME/.local/state/$HELPER_BIN/Backup")
+  fi
+  if command -v "$HELPER_BIN" >/dev/null 2>&1; then
+    local cfg
+    cfg="$("$HELPER_BIN" -c 2>/dev/null || true)"
+    [ -n "$cfg" ] && roots+=("$(dirname "$cfg")/Backup")
+  fi
+  printf '%s\n' "${roots[@]}"
+}
+
+find_helper_xpui_backup() {
+  local root src
+  while IFS= read -r root; do
+    [ -d "$root" ] || continue
+    for src in "$root/xpui.spa" "$root/Apps/xpui.spa" "$root"/*/xpui.spa "$root"/*/Apps/xpui.spa; do
+      if [ -f "$src" ]; then
+        echo "$src"
+        return 0
+      fi
+    done
+  done < <(helper_backup_roots)
+  return 1
+}
+
 restore_helper_backup() {
   command -v "$HELPER_BIN" >/dev/null 2>&1 || return 1
 
@@ -187,44 +224,35 @@ restore_helper_backup() {
     return 0
   fi
 
-  local cfg cfg_dir src target
-  cfg="$("$HELPER_BIN" -c 2>/dev/null || true)"
-  [ -n "$cfg" ] || return 1
-  cfg_dir="$(dirname "$cfg")"
+  local src target
+  src="$(find_helper_xpui_backup)" || return 1
 
-  for src in \
-      "$cfg_dir/Backup/xpui.spa" \
-      "$cfg_dir/Backup/Apps/xpui.spa" \
-      "$cfg_dir/Backup"/*/xpui.spa \
-      "$cfg_dir/Backup"/*/Apps/xpui.spa; do
-    [ -f "$src" ] || continue
-    if [ "$OS" = "Darwin" ]; then
-      for target in \
-          "/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa" \
-          "$HOME/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa"; do
-        [ -d "$(dirname "$target")" ] || continue
-        if cp "$src" "$target" 2>/dev/null; then
-          echo "  Restored $target from helper backup."
-          return 0
-        fi
-        if sudo cp "$src" "$target" 2>/dev/null; then
-          echo "  Restored $target from helper backup (sudo)."
-          return 0
-        fi
-      done
-    else
-      for target in \
-          "/opt/spotify/spotify-client/Apps/xpui.spa" \
-          "/usr/share/spotify/Apps/xpui.spa" \
-          "$HOME/.var/app/com.spotify.Client/config/spotify/Apps/xpui.spa"; do
-        [ -d "$(dirname "$target")" ] || continue
-        if cp "$src" "$target" 2>/dev/null || sudo cp "$src" "$target" 2>/dev/null; then
-          echo "  Restored $target from helper backup."
-          return 0
-        fi
-      done
-    fi
-  done
+  if [ "$OS" = "Darwin" ]; then
+    for target in \
+        "/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa" \
+        "$HOME/Applications/Spotify.app/Contents/Resources/Apps/xpui.spa"; do
+      [ -d "$(dirname "$target")" ] || continue
+      if cp "$src" "$target" 2>/dev/null; then
+        echo "  Restored $target from helper backup ($src)."
+        return 0
+      fi
+      if sudo cp "$src" "$target" 2>/dev/null; then
+        echo "  Restored $target from helper backup ($src, sudo)."
+        return 0
+      fi
+    done
+  else
+    for target in \
+        "/opt/spotify/spotify-client/Apps/xpui.spa" \
+        "/usr/share/spotify/Apps/xpui.spa" \
+        "$HOME/.var/app/com.spotify.Client/config/spotify/Apps/xpui.spa"; do
+      [ -d "$(dirname "$target")" ] || continue
+      if cp "$src" "$target" 2>/dev/null || sudo cp "$src" "$target" 2>/dev/null; then
+        echo "  Restored $target from helper backup ($src)."
+        return 0
+      fi
+    done
+  fi
 
   return 1
 }
