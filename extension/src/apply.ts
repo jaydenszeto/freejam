@@ -3,6 +3,7 @@ import { state, notifyState } from "./state";
 import { suppress } from "./echo-guard";
 import { serverNow } from "./clock";
 import { currentTrackUri, isPlaying, pause, play, playUri, progressMs, seek } from "./spotify";
+import { handleJoinedQueue, handleRemoteQueue } from "./queue";
 
 export function handleServerMsg(msg: ServerMsg): void {
   switch (msg.t) {
@@ -26,6 +27,7 @@ export function handleServerMsg(msg: ServerMsg): void {
       state.status = "in_room";
       state.error = null;
       notifyState();
+      handleJoinedQueue(msg.state, msg.peers.length <= 1);
       if (msg.state.track_uri && msg.state.beacon_id !== state.peer_id) {
         applyRemoteState({
           track_uri: msg.state.track_uri,
@@ -50,6 +52,9 @@ export function handleServerMsg(msg: ServerMsg): void {
           server_time_recorded: msg.server_recv_at,
         });
       }
+      return;
+    case "queue":
+      handleRemoteQueue(msg);
       return;
     case "peer_join":
       state.peers.add(msg.peer_id);

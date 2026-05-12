@@ -1,6 +1,7 @@
 import { connect } from "./ws-client";
 import { startPeer } from "./peer";
 import { startDriftLoop } from "./drift";
+import { startQueueSync } from "./queue";
 import { initUI } from "./ui";
 import { isReady } from "./spotify";
 
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   initUI();
   connect();
   startPeer();
+  startQueueSync();
   startDriftLoop();
 }
 

@@ -1,4 +1,4 @@
-import type { PeerId, RoomCode } from "./types";
+import type { PeerId, QueueTrack, RoomCode } from "./types";
 
 export type Status = "disconnected" | "connecting" | "connected" | "in_room";
 
@@ -19,6 +19,13 @@ export type State = {
   current_position_ms: number;
   current_is_playing: boolean;
   last_position_at_server: number;
+
+  // Last known shared queue.
+  shared_queue: QueueTrack[];
+  queue_revision: string | null;
+  queue_recorded_at: number;
+  queue_beacon_id: PeerId | null;
+  queue_error: string | null;
 };
 
 export const state: State = {
@@ -34,6 +41,11 @@ export const state: State = {
   current_position_ms: 0,
   current_is_playing: false,
   last_position_at_server: 0,
+  shared_queue: [],
+  queue_revision: null,
+  queue_recorded_at: 0,
+  queue_beacon_id: null,
+  queue_error: null,
 };
 
 type Listener = () => void;

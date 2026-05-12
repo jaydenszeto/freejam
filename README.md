@@ -1,6 +1,6 @@
 # FreeJam
 
-Listen to Spotify with friends — on your own account, in sync, with bidirectional control. Anyone in the room plays a song and everyone hears it. Pause, seek, skip — all of it propagates both ways.
+Listen to Spotify with friends — on your own account, in sync, with bidirectional control. Anyone in the room plays a song and everyone hears it. Pause, seek, skip, and queue changes propagate both ways.
 
 ## Install
 
@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh
 
 1. One person clicks **Start a Room** and shares the 6-character code.
 2. Others click **Join a Room** and enter the code.
-3. Play music in Spotify like you normally would. Everyone hears it.
+3. Play music or add tracks to your queue in Spotify like you normally would. Everyone hears it and sees the shared queue.
 
 ## License
 

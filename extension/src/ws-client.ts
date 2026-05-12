@@ -104,6 +104,11 @@ export function leaveRoom(): void {
   state.beacon_id = null;
   state.current_track_uri = null;
   state.current_is_playing = false;
+  state.shared_queue = [];
+  state.queue_revision = null;
+  state.queue_recorded_at = 0;
+  state.queue_beacon_id = null;
+  state.queue_error = null;
   state.status = state.ws && state.ws.readyState === WebSocket.OPEN ? "connected" : "disconnected";
   notifyState();
 }

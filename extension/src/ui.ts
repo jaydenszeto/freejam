@@ -142,7 +142,116 @@ function renderInRoom(React: any, joinCode: string, setJoinCode: (s: string) => 
           state.current_track_uri.replace("spotify:track:", "track ").slice(0, 22) + "…",
         )
       : null,
+    renderQueue(React),
     React.createElement("button", { onClick: () => leaveRoom(), style: ghostBtn() }, "Leave room"),
+  );
+}
+
+function renderQueue(React: any) {
+  const queue = state.shared_queue.slice(0, 8);
+  const remaining = Math.max(0, state.shared_queue.length - queue.length);
+  return React.createElement(
+    "div",
+    {
+      style: {
+        marginBottom: "1rem",
+        background: "#161616",
+        border: "1px solid #252525",
+        borderRadius: "8px",
+        overflow: "hidden",
+      },
+    },
+    React.createElement(
+      "div",
+      {
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "0.75rem",
+          padding: "0.65rem 0.8rem",
+          borderBottom: "1px solid #252525",
+          fontSize: "0.82rem",
+          color: "#aaa",
+        },
+      },
+      React.createElement("span", null, "Shared queue"),
+      React.createElement("span", null, `${state.shared_queue.length} track${state.shared_queue.length === 1 ? "" : "s"}`),
+    ),
+    state.queue_error
+      ? React.createElement(
+          "div",
+          { style: { color: "#ff6464", fontSize: "0.78rem", padding: "0.65rem 0.8rem" } },
+          state.queue_error,
+        )
+      : null,
+    queue.length === 0
+      ? React.createElement(
+          "div",
+          { style: { color: "#666", fontSize: "0.82rem", padding: "0.75rem 0.8rem" } },
+          "No tracks queued",
+        )
+      : queue.map((track, i) =>
+          React.createElement(
+            "div",
+            {
+              key: `${track.uri}:${i}`,
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "0.65rem",
+                padding: "0.55rem 0.8rem",
+                borderTop: i === 0 && !state.queue_error ? "none" : "1px solid #222",
+              },
+            },
+            track.image_url
+              ? React.createElement("img", {
+                  src: track.image_url,
+                  style: { width: 32, height: 32, borderRadius: 4, objectFit: "cover", flex: "0 0 auto" },
+                })
+              : React.createElement("div", {
+                  style: { width: 32, height: 32, borderRadius: 4, background: "#242424", flex: "0 0 auto" },
+                }),
+            React.createElement(
+              "div",
+              { style: { minWidth: 0, flex: 1 } },
+              React.createElement(
+                "div",
+                {
+                  style: {
+                    color: "#eee",
+                    fontSize: "0.86rem",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  },
+                },
+                track.name ?? track.uri.replace("spotify:track:", "track "),
+              ),
+              track.artist
+                ? React.createElement(
+                    "div",
+                    {
+                      style: {
+                        color: "#777",
+                        fontSize: "0.76rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      },
+                    },
+                    track.artist,
+                  )
+                : null,
+            ),
+          ),
+        ),
+    remaining > 0
+      ? React.createElement(
+          "div",
+          { style: { color: "#777", fontSize: "0.76rem", padding: "0.55rem 0.8rem", borderTop: "1px solid #222" } },
+          `+${remaining} more`,
+        )
+      : null,
   );
 }
 
