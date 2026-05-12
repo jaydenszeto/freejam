@@ -1,6 +1,7 @@
-import { state } from "./state";
+import { state, notifyState } from "./state";
 import { sendMsg } from "./ws-client";
 import { shouldSuppress } from "./echo-guard";
+import { serverNow } from "./clock";
 import { addPlayerListener, currentTrackUri, isPlaying, progressMs } from "./spotify";
 
 let lastSentAt = 0;
@@ -40,6 +41,13 @@ function pushState(force: boolean): void {
   lastSentTrack = snap.track_uri;
   lastSentPlaying = snap.is_playing;
   sendMsg({ t: "state", ...snap, sent_at: now });
+  // Mirror the picker state locally so the UI and beacon checks see us as current.
+  state.beacon_id = state.peer_id;
+  state.current_track_uri = snap.track_uri;
+  state.current_position_ms = snap.position_ms;
+  state.current_is_playing = snap.is_playing;
+  state.last_position_at_server = serverNow();
+  notifyState();
 }
 
 function beaconTick(): void {
