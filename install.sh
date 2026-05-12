@@ -160,7 +160,11 @@ audio_patch_skipped() {
   [ "${FREEJAM_SKIP_AUDIO_PATCH:-0}" = "1" ]
 }
 
+# Populates global AUDIO_FLAGS. Pass "reinstall" to add the OS-specific
+# install flag (SpotX's --installmac / --installdeb), which makes SpotX
+# rm -rf the existing Spotify and untar a fresh client before patching.
 build_audio_patch_flags() {
+  local mode="${1:-}"
   AUDIO_FLAGS=()
   if [ -n "${FREEJAM_AUDIO_PATCH_FLAGS:-}" ]; then
     read -r -a AUDIO_FLAGS <<<"${FREEJAM_AUDIO_PATCH_FLAGS}"
@@ -168,11 +172,15 @@ build_audio_patch_flags() {
   fi
   if [ "$OS" = "Darwin" ]; then
     AUDIO_FLAGS=(-f -B -c)
-    if [ ! -d "/Applications/Spotify.app" ] && [ ! -d "$HOME/Applications/Spotify.app" ]; then
+    if [ "$mode" = "reinstall" ] \
+        || ([ ! -d "/Applications/Spotify.app" ] && [ ! -d "$HOME/Applications/Spotify.app" ]); then
       AUDIO_FLAGS=(--installmac "${AUDIO_FLAGS[@]}")
     fi
   else
     AUDIO_FLAGS=(-f -c)
+    if [ "$mode" = "reinstall" ] && command -v apt-get >/dev/null 2>&1; then
+      AUDIO_FLAGS=(--installdeb "${AUDIO_FLAGS[@]}")
+    fi
   fi
 }
 
@@ -202,17 +210,26 @@ run_audio_patch() {
     return
   fi
 
-  # "Detected audio patch but no backup file! Reinstall client." — xpui.spa
-  # already carries the audio-patch markers from a prior run, so ad-blocking
-  # is in effect; SpotX just can't re-patch without its own backup. The
-  # downstream `spicetify backup apply` takes a fresh backup of the current
-  # xpui and applies FreeJam on top, which is all we need.
-  if LC_ALL=C grep -Eiq 'no backup file|Reinstall client' "$TMP/audio-patch.log"; then
-    echo "Audio cleanup already present from a prior run; continuing."
-    return
+  # SpotX bailed because xpui.spa has stale patch markers and SpotX has no
+  # backup to restore from. Retry with the OS install flag — SpotX will
+  # rm -rf the current Spotify.app, download a fresh client, and patch it
+  # cleanly. This is heavier than the first attempt but guarantees SpotX
+  # actually applies the patch.
+  if LC_ALL=C grep -Eiq 'no backup file|Reinstall client|modified client installation' "$TMP/audio-patch.log"; then
+    echo "Spotify is in a stuck state. Downloading a fresh Spotify and re-applying the audio patch…"
+    if [ "$OS" = "Darwin" ]; then
+      osascript -e 'tell application "Spotify" to quit' >/dev/null 2>&1 || true
+    else
+      pkill -x spotify >/dev/null 2>&1 || true
+    fi
+    sleep 1
+    build_audio_patch_flags reinstall
+    if run_with_log "$TMP/audio-patch.log" bash "$patch_script" "${AUDIO_FLAGS[@]}"; then
+      return
+    fi
   fi
 
-  fail_with_log "Audio patch failed. Re-run this installer after fixing the setup issue." "$TMP/audio-patch.log"
+  fail_with_log "Audio patch failed. Re-run with FREEJAM_DEBUG=1 to see the full log." "$TMP/audio-patch.log"
 }
 
 select_state_home
