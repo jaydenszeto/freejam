@@ -2,7 +2,7 @@
 
 Listen to Spotify with friends — on your own account, in sync, with bidirectional control. Anyone in the room plays a song and everyone hears it. Pause, seek, skip, and queue changes propagate both ways.
 
-## Install
+## Install — Desktop (recommended)
 
 Run on every machine. macOS and Linux.
 
@@ -19,6 +19,17 @@ curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install-pr
 ```
 
 Then **open Spotify** and click the **FreeJam** button in the playbar — bottom-right, next to the lyrics icon.
+
+## Install — Web (open.spotify.com, no install)
+
+For a friend on Chrome who doesn't want to install anything: <https://167-234-216-26.nip.io/web>
+
+Three options on that page:
+1. **Bookmarklet** — drag once, click on Spotify.
+2. **Console paste** — one line in DevTools.
+3. **Chrome extension** — load unpacked from `web/extension/` for persistence across reloads.
+
+Web and desktop peers can be in the same room. The web client is DOM-driven (no Spotify token needed) — play/pause/seek/track-change sync, but the shared queue is read-only on web.
 
 On macOS the audio patch also blocks Spotify auto-updates and clears the app cache so the patch sticks.
 

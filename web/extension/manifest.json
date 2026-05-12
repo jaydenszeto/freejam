@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "FreeJam for web",
+  "description": "Listen to Spotify with friends on open.spotify.com.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "FreeJam"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://open.spotify.com/*"],
+      "js": ["loader.js"],
+      "run_at": "document_idle",
+      "all_frames": false,
+      "world": "MAIN"
+    }
+  ]
+}

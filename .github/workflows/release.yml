@@ -27,8 +27,19 @@ jobs:
           bun install
           bun run build
 
+      - name: Build web bundle
+        working-directory: web
+        env:
+          FREEJAM_SERVER: wss://167-234-216-26.nip.io/ws
+          FREEJAM_VERSION: ${{ github.ref_name }}
+        run: |
+          bun install
+          bun run build
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: extension/dist/freejam.js
+          files: |
+            extension/dist/freejam.js
+            web/dist/freejam-web.js
           generate_release_notes: true

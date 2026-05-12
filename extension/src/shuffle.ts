@@ -1,4 +1,7 @@
 import { hostApi, currentContextUri } from "./spotify";
+import { publishLocalQueue } from "./queue";
+import { markUserAdvance } from "./intent";
+import { state } from "./state";
 
 // Uniform-random shuffle of the currently playing context.
 //
@@ -133,6 +136,16 @@ export async function trueShuffleCurrentContext(): Promise<ShuffleResult> {
 
     const shuffled = fisherYates(uris);
     setInternalQueue(shuffled, context);
+
+    // Tell FreeJam the new queue exists before the songchange fires — otherwise
+    // peer.ts would classify the first-shuffled track as off-queue and roll it
+    // back, undoing the shuffle. publishLocalQueue is a no-op when we're not
+    // in a room.
+    if (state.room_code) {
+      publishLocalQueue(true);
+      if (shuffled[0]) markUserAdvance(shuffled[0]);
+    }
+
     api.Player.next();
 
     if (typeof api?.showNotification === "function") {

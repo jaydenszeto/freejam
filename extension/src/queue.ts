@@ -86,11 +86,22 @@ function pollQueue(): void {
   }
 }
 
-function publishLocalQueue(force: boolean): void {
+export function publishLocalQueue(force: boolean): void {
   const snap = currentQueueSnapshot();
   const sig = queueSignature(snap.queue);
   if (!force && sig === lastPublishedSig) return;
   publishSnapshot(snap.queue, snap.revision, sig);
+}
+
+// Optimistically append a track to the shared queue and broadcast immediately.
+// Used by peer.ts when a user clicks an off-queue song — we want the room queue
+// to reflect the new addition without waiting for the next 1.5s poll, and we
+// want to gate the poller so it doesn't republish a stale signature.
+export function appendLocalQueueOptimistic(track: QueueTrack): void {
+  if (!state.room_code) return;
+  const nextQueue = [...state.shared_queue, track];
+  suppressLocalUntil = Date.now() + APPLY_SUPPRESS_MS;
+  publishSnapshot(nextQueue, state.queue_revision, queueSignature(nextQueue));
 }
 
 function publishSnapshot(queue: QueueTrack[], revision: string | null, sig: string): void {

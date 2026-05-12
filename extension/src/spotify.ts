@@ -81,23 +81,43 @@ function firstArtist(raw: any, metadata: any): string | null {
 
 function firstImage(raw: any, metadata: any): string | null {
   const images = raw?.album?.images ?? raw?.images;
+  let candidate: string | null = null;
   if (Array.isArray(images) && images.length > 0) {
-    return firstString(images[0]?.url, images[0]);
+    candidate = firstString(images[0]?.url, images[0]);
   }
-  return firstString(
-    metadata?.image_url,
-    metadata?.image_large_url,
-    metadata?.image_xlarge_url,
-    metadata?.album_image_url,
-    raw?.imageUrl,
-  );
+  if (!candidate) {
+    candidate = firstString(
+      metadata?.image_url,
+      metadata?.image_large_url,
+      metadata?.image_xlarge_url,
+      metadata?.album_image_url,
+      raw?.imageUrl,
+    );
+  }
+  return normalizeImageUrl(candidate);
+}
+
+// Spicetify hands back image references in the `spotify:image:HASH` URI
+// scheme. The browser can't load those, so map to the public CDN URL —
+// every peer (web or desktop) renders via a plain <img>.
+function normalizeImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("spotify:image:")) {
+    return "https://i.scdn.co/image/" + url.slice("spotify:image:".length);
+  }
+  return url;
+}
+
+export function isAllowedTrackUri(uri: string | null | undefined): uri is string {
+  if (typeof uri !== "string") return false;
+  return uri.startsWith("spotify:track:") || uri.startsWith("spotify:episode:");
 }
 
 function normalizeQueueTrack(input: any): QueueTrack | null {
   const raw = input?.contextTrack ?? input?.track ?? input?.item ?? input;
   const metadata = raw?.metadata ?? input?.metadata ?? {};
   const uri = firstString(raw?.uri, input?.uri, metadata?.uri);
-  if (!uri || !uri.startsWith("spotify:") || uri.startsWith("spotify:ad:")) return null;
+  if (!isAllowedTrackUri(uri)) return null;
   return {
     uri,
     name: firstString(raw?.name, raw?.title, metadata?.title, metadata?.name),
@@ -111,6 +131,19 @@ export type QueueSnapshot = {
   queue: QueueTrack[];
   revision: string | null;
 };
+
+// Read the currently-playing track as a QueueTrack — used by peer.ts when
+// materialising the metadata for an off-queue click before broadcasting it as
+// a room-queue append. Returns null if Player.data.item is missing or its URI
+// doesn't pass isAllowedTrackUri (e.g. ads, sentinels).
+export function currentTrackMeta(): QueueTrack | null {
+  try {
+    const item = hostApi().Player.data?.item;
+    return normalizeQueueTrack(item);
+  } catch {
+    return null;
+  }
+}
 
 export function currentQueueSnapshot(): QueueSnapshot {
   try {
