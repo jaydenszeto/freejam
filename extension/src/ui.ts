@@ -1,8 +1,11 @@
 import { state, onStateChange } from "./state";
 import { createRoom, joinRoom, leaveRoom } from "./ws-client";
 import { hostApi } from "./spotify";
+import { trueShuffleCurrentContext } from "./shuffle";
 
 let playbarButton: any = null;
+let shuffleButton: any = null;
+let shuffleBusy = false;
 
 export function initUI(): void {
   const api = hostApi();
@@ -11,6 +14,24 @@ export function initUI(): void {
     "FreeJam",
     `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM6.4 5l4.6 3-4.6 3V5z"/></svg>`,
     () => openModal(),
+  );
+
+  const shuffleIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.151 0.477 15.51 2.836a0.75 0.75 0 0 1 0 1.06l-2.359 2.36-1.06-1.06 1.07-1.07H10.94a3.25 3.25 0 0 0-2.633 1.345l-3.83 5.31A4.75 4.75 0 0 1 0.629 12.75H0v-1.5h0.629a3.25 3.25 0 0 0 2.633-1.345l3.83-5.31A4.75 4.75 0 0 1 10.94 2.626h2.221l-1.07-1.07L13.15 0.476zM0 4.25h0.629c1.527 0 2.963 0.733 3.866 1.982L5.27 7.16 4.06 8.836 3.282 7.755A3.25 3.25 0 0 0 0.629 6.41H0v-2.16zm10.94 3.745h2.221l-1.07-1.07 1.06-1.06 2.36 2.36a0.75 0.75 0 0 1 0 1.06l-2.36 2.36-1.06-1.06 1.07-1.07H10.94a3.25 3.25 0 0 1-2.633-1.345L7.275 6.825 8.486 5.15l1.034 1.435a4.75 4.75 0 0 0 1.42 1.41z"/></svg>`;
+
+  shuffleButton = new api.Playbar.Button(
+    "True Shuffle",
+    shuffleIcon,
+    async () => {
+      if (shuffleBusy) return;
+      shuffleBusy = true;
+      shuffleButton.label = "Shuffling…";
+      try {
+        await trueShuffleCurrentContext();
+      } finally {
+        shuffleBusy = false;
+        shuffleButton.label = "True Shuffle";
+      }
+    },
   );
 
   const updateLabel = () => {

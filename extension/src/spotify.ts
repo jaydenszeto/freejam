@@ -29,6 +29,15 @@ export function currentTrackUri(): string | null {
   }
 }
 
+export function currentContextUri(): string | null {
+  try {
+    const data = hostApi().Player.data;
+    return data?.context?.uri ?? data?.context_uri ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function currentTrackName(): string | null {
   try {
     const data = hostApi().Player.data;
