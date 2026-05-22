@@ -9,13 +9,13 @@ Run on every machine. macOS and Linux.
 **Default — installs FreeJam plus the audio cleanup patch that removes ads.** Use this unless you're on Spotify Premium.
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | bash
+curl -fsSL -H 'Accept: application/vnd.github.raw' https://api.github.com/repos/jaydenszeto/freejam/contents/install.sh | bash
 ```
 
 **Spotify Premium — installs FreeJam only, no audio patch.**
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install-premium.sh | bash
+curl -fsSL -H 'Accept: application/vnd.github.raw' https://api.github.com/repos/jaydenszeto/freejam/contents/install-premium.sh | bash
 ```
 
 Then **open Spotify** and click the **FreeJam** button in the playbar — bottom-right, next to the lyrics icon.
@@ -42,7 +42,7 @@ Advanced overrides (default installer):
 When using the one-line installer, put overrides on `bash`, e.g.:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jaydenszeto/freejam/main/install.sh | FREEJAM_DEBUG=1 bash
+curl -fsSL -H 'Accept: application/vnd.github.raw' https://api.github.com/repos/jaydenszeto/freejam/contents/install.sh | FREEJAM_DEBUG=1 bash
 ```
 
 ## Use
