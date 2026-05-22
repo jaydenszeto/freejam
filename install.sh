@@ -260,8 +260,22 @@ mkdir -p "$EXT_DIR"
 echo "Downloading FreeJam…"
 curl -fsSL --retry 3 "https://github.com/${REPO}/releases/latest/download/freejam.js" -o "$EXT_DIR/freejam.js"
 
+echo "Downloading Show All By Plays…"
+SABP_API="https://api.github.com/repos/jaydenszeto/spotify-all-by-plays/contents/show-all-by-plays.js"
+SABP_RAW="https://raw.githubusercontent.com/jaydenszeto/spotify-all-by-plays/main/show-all-by-plays.js"
+if ! curl -fsSL --retry 3 -H 'Accept: application/vnd.github.raw' "$SABP_API" -o "$EXT_DIR/show-all-by-plays.js"; then
+  # GitHub API hits 60 req/hr/IP unauthenticated; fall back to raw with cache bust.
+  curl -fsSL --retry 3 "${SABP_RAW}?$(date +%s)" -o "$EXT_DIR/show-all-by-plays.js"
+fi
+
 # Register and apply.
 "$HELPER_BIN" config extensions freejam.js >"$TMP/cfg.log" 2>&1
+# Only register Show All By Plays if it isn't already in the extensions list,
+# to keep re-runs of the installer idempotent.
+if ! "$HELPER_BIN" -c >/dev/null 2>&1 \
+   || ! grep -qE '^extensions[[:space:]]*=.*show-all-by-plays\.js' "$CONFIG_FILE"; then
+  "$HELPER_BIN" config extensions show-all-by-plays.js >>"$TMP/cfg.log" 2>&1
+fi
 # Remove the Spicetify Marketplace sidebar button (no-op if not present).
 "$HELPER_BIN" config custom_apps marketplace- >>"$TMP/cfg.log" 2>&1 || true
 ensure_helper_state
@@ -275,4 +289,5 @@ if audio_patch_skipped; then
 else
   echo "✓ FreeJam installed with Spotify audio cleanup."
 fi
-echo "  Open Spotify, then click FreeJam in the playbar — bottom-right, next to the lyrics icon."
+echo "  • FreeJam — playbar, bottom-right next to the lyrics icon."
+echo "  • Show All By Plays — green chip next to 'Popular' on any artist page."
